@@ -12,6 +12,10 @@ const JOBS = [
   J('j2', 'Full Stack Engineer', 'Orbit Labs', 'React, Node.js, Express and MongoDB for internal tools.', 9, { minCgpa: 7.5 }),
   J('j3', 'Backend Developer', 'Kite Systems', 'Node.js, Express, MongoDB and REST API design.', 15, { minCgpa: 7 }),
   J('j4', 'Data Analyst', 'Numera', 'SQL, Python, Excel and Power BI dashboards.', 20, { minCgpa: 7.5 }),
+  J('j5', 'Java Developer Trainee', 'Stackwell', 'Java, Spring Boot, SQL and Git.', 7, { minCgpa: 6.5, maxBacklogs: 0 }),
+  J('j6', 'ML Engineer Intern', 'Tensora', 'Python, machine learning and SQL.', 18, { minCgpa: 8.5, branches: ['IT', 'CSE'] }),
+  J('j7', 'QA Automation Engineer', 'Verity', 'Testing with Selenium, JavaScript and Git.', 10, { minCgpa: 6.5 }),
+  J('j8', 'Embedded Systems Trainee', 'Circuita', 'C, C++ and microcontrollers.', 14, { minCgpa: 7, branches: ['ECE'] }),
 ];
 const llmFallback = createLlmFallback();
 
