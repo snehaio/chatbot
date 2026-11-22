@@ -1,0 +1,606 @@
+<title>Placement Assistant Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: profile sidebar left, full-height chat right; stacks on phones. */
+:root{
+  --bg:#f3f5f9; --surface:#ffffff; --ink:#18202f; --muted:#5d687d; --line:#dde2ec;
+  --accent:#2a56d6; --accent-ink:#ffffff; --good-bg:#dcf3e6; --good:#16603b; --bad-bg:#fce4e4; --bad:#9a2323; --user-bg:#2a56d6;
+  --font-body:'Inter',system-ui,sans-serif; --font-head:'Space Grotesk','Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141d; --surface:#171e2b; --ink:#e7ebf3; --muted:#9aa5ba; --line:#2a3447;
+  --accent:#6e93ff; --accent-ink:#0b1020; --good-bg:#17382a; --good:#7fe0a9; --bad-bg:#431e1e; --bad:#ff9d9d; --user-bg:#3a63e0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141d; --surface:#171e2b; --ink:#e7ebf3; --muted:#9aa5ba; --line:#2a3447;
+  --accent:#6e93ff; --accent-ink:#0b1020; --good-bg:#17382a; --good:#7fe0a9; --bad-bg:#431e1e; --bad:#ff9d9d; --user-bg:#3a63e0; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font-body);padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.app{max-width:1060px;margin:0 auto;height:100%;display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px}
+h1{font:700 20px/1.2 var(--font-head);margin:0 0 4px;text-wrap:balance}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0;overflow-y:auto}
+.side p{margin:0;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h2{font:600 11px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+label{display:flex;flex-direction:column;gap:4px;font-weight:500;font-size:12px;color:var(--muted)}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:12px;color:var(--muted)}
+.jobs-list{display:flex;flex-direction:column;gap:6px;font-size:12px;margin:0;padding:0;list-style:none;color:var(--muted)}
+.jobs-list b{color:var(--ink);font-weight:600}
+.chat{background:var(--surface);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.chat-head{padding:12px 16px;border-bottom:1px solid var(--line);font:600 15px var(--font-head);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chat-head small{font:400 12px var(--font-body);color:var(--muted)}
+.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{max-width:min(86%,560px);padding:9px 13px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.bot{background:var(--bg);border:1px solid var(--line);align-self:flex-start}
+.user{background:var(--user-bg);color:#fff;align-self:flex-end}
+.job{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);white-space:normal}
+.job-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.job-top strong{font-weight:600}
+.score{font:700 13px var(--font-head);color:var(--good);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted);font-size:12px}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tag{font-size:11px;padding:1px 7px;border-radius:10px}
+.tag.ok{background:var(--good-bg);color:var(--good)}
+.tag.miss{background:var(--bad-bg);color:var(--bad)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-top:1px solid var(--line)}
+.chips button{border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:14px;padding:4px 11px;font:inherit;font-size:12px;cursor:pointer}
+.chips button:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+form{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+form input{flex:1}
+form button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:0 16px;font:600 13px var(--font-body);cursor:pointer}
+form button:disabled{opacity:.5;cursor:not-allowed}
+@media (max-width:760px){
+  body{height:auto}
+  .app{grid-template-columns:minmax(0,1fr);height:auto}
+  .chat{height:78vh}
+  .side{overflow:visible}
+}
+@media (prefers-reduced-motion:no-preference){.msg{animation:pop .15s ease-out}@keyframes pop{from{opacity:.4;transform:translateY(3px)}}}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div>
+      <h1>Placement Assistant</h1>
+      <p>Demo of the portal chatbot. It runs the real matching and intent code on sample data. Change the profile and ask again.</p>
+    </div>
+    <div class="card">
+      <h2>Sample student</h2>
+      <label>Name <input id="name" value="Ridhima Sharma"></label>
+      <div class="row">
+        <label>Branch
+          <select id="branch"><option>IT</option><option>CSE</option><option>ECE</option><option>MECH</option></select>
+        </label>
+        <label>CGPA <input id="cgpa" type="number" step="0.1" min="0" max="10" value="8.2"></label>
+      </div>
+      <label>Skills (comma separated) <input id="skills" value="React, JavaScript, HTML"></label>
+      <label>Backlogs <input id="backlogs" type="number" min="0" value="0"></label>
+    </div>
+    <div class="card">
+      <h2>Open jobs in this demo</h2>
+      <ul class="jobs-list" id="joblist"></ul>
+    </div>
+  </aside>
+
+  <main class="chat">
+    <div class="chat-head">Chat <small>Rule-based, no API key</small></div>
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <form id="form">
+      <input id="input" placeholder="Ask about jobs or interview prep" maxlength="500" autocomplete="off" aria-label="Message">
+      <button id="send" type="submit">Send</button>
+    </form>
+  </main>
+</div>
+
+<script>
+const __defs={},__cache={};
+function __require(n){n=String(n).replace(/^\.\//,"");if(__cache[n])return __cache[n].exports;const m={exports:{}};__cache[n]=m;__defs[n](m,m.exports);return m.exports}
+__defs["knowledgeBase"]=function(module,exports){
+// Static placement-prep content. Edit freely: add questions, topics, tips.
+
+const technicalQuestions = {
+  dsa: [
+    { id: 'dsa-1', q: 'Difference between an array and a linked list?', a: 'Arrays use contiguous memory with O(1) index access but O(n) insert/delete in the middle. Linked lists use nodes with pointers: O(1) insert/delete given the node, but O(n) access.' },
+    { id: 'dsa-2', q: 'How does a hash map work and what is a collision?', a: 'A hash function maps a key to a bucket index. A collision is when two keys map to the same bucket; it is handled by chaining (list per bucket) or open addressing. Average get/put is O(1).' },
+    { id: 'dsa-3', q: 'When would you use BFS vs DFS?', a: 'BFS (queue) finds shortest paths in unweighted graphs and works level by level. DFS (stack/recursion) suits cycle detection, topological sort and exploring all paths.' },
+  ],
+  oop: [
+    { id: 'oop-1', q: 'Explain the four pillars of OOP.', a: 'Encapsulation (bundle data and methods, hide internals), Abstraction (expose only essentials), Inheritance (reuse via parent-child classes), Polymorphism (same interface, different behaviour: overloading and overriding).' },
+    { id: 'oop-2', q: 'Abstract class vs interface?', a: 'An abstract class can hold state and partial implementation and supports single inheritance. An interface defines a contract only (in most languages) and a class can implement many.' },
+  ],
+  dbms: [
+    { id: 'dbms-1', q: 'What are ACID properties?', a: 'Atomicity (all or nothing), Consistency (valid state to valid state), Isolation (concurrent transactions do not interfere), Durability (committed data survives crashes).' },
+    { id: 'dbms-2', q: 'Explain normalization and why it is used.', a: 'Organising tables to reduce redundancy and update anomalies: 1NF (atomic values), 2NF (no partial dependency), 3NF (no transitive dependency). Denormalise only for read performance.' },
+    { id: 'dbms-3', q: 'SQL vs NoSQL (e.g. MongoDB)?', a: 'SQL: fixed schema, joins, strong ACID, good for relational data. NoSQL document stores: flexible schema, horizontal scaling, good for semi-structured data like resumes and profiles.' },
+  ],
+  os: [
+    { id: 'os-1', q: 'Process vs thread?', a: 'A process has its own address space; a thread is a lightweight unit inside a process that shares memory with sibling threads. Context switching between threads is cheaper.' },
+    { id: 'os-2', q: 'What is a deadlock and its four conditions?', a: 'Processes wait on each other forever. Needs mutual exclusion, hold and wait, no preemption and circular wait. Break any one to prevent it.' },
+  ],
+  cn: [
+    { id: 'cn-1', q: 'TCP vs UDP?', a: 'TCP is connection-oriented, reliable and ordered (web, email). UDP is connectionless and faster with no delivery guarantee (video, DNS, gaming).' },
+    { id: 'cn-2', q: 'What happens when you type a URL in the browser?', a: 'DNS lookup, TCP handshake (and TLS for HTTPS), HTTP request, server processes and responds, browser parses HTML and renders, loading further resources.' },
+  ],
+  javascript: [
+    { id: 'js-1', q: 'var vs let vs const?', a: 'var is function-scoped and hoisted (initialised as undefined). let and const are block-scoped with a temporal dead zone; const cannot be reassigned.' },
+    { id: 'js-2', q: 'Explain closures and the event loop.', a: 'A closure is a function that remembers variables from its defining scope. The event loop pushes callbacks from the task/microtask queues onto the call stack when it is empty, enabling async behaviour on a single thread.' },
+  ],
+  react: [
+    { id: 'react-1', q: 'Why do we use keys in lists?', a: 'Keys give React a stable identity for each element so it can efficiently diff and reorder items without remounting or mixing up state.' },
+    { id: 'react-2', q: 'useEffect vs useMemo vs useCallback?', a: 'useEffect runs side effects after render. useMemo caches a computed value; useCallback caches a function reference. Both memo hooks depend on their dependency arrays.' },
+  ],
+  node: [
+    { id: 'node-1', q: 'What is middleware in Express?', a: 'A function (req, res, next) that runs in the request pipeline, e.g. logging, JWT auth or validation. It either ends the response or calls next().' },
+    { id: 'node-2', q: 'How does JWT authentication work?', a: 'On login the server signs a token containing claims (user id, role). The client sends it in the Authorization header; the server verifies the signature on each request without storing session state.' },
+  ],
+  sql: [
+    { id: 'sql-1', q: 'WHERE vs HAVING?', a: 'WHERE filters rows before grouping; HAVING filters groups after GROUP BY and can use aggregates like COUNT().' },
+    { id: 'sql-2', q: 'INNER JOIN vs LEFT JOIN?', a: 'INNER returns only matching rows from both tables. LEFT returns all rows from the left table plus matches from the right (NULL where none).' },
+  ],
+  python: [
+    { id: 'py-1', q: 'List vs tuple in Python?', a: 'Lists are mutable; tuples are immutable, hashable (if contents are) and slightly faster. Use tuples for fixed records and dict keys.' },
+  ],
+  java: [
+    { id: 'java-1', q: 'Difference between == and .equals() in Java?', a: '== compares references (or primitive values); .equals() compares logical content when overridden, as in String.' },
+  ],
+};
+
+const topicAliases = {
+  dsa: ['dsa', 'data structure', 'data structures', 'algorithm', 'algorithms', 'array', 'linked list', 'graph', 'tree'],
+  oop: ['oop', 'oops', 'object oriented', 'object-oriented'],
+  dbms: ['dbms', 'database', 'databases', 'normalization', 'acid', 'mongodb'],
+  os: ['os', 'operating system', 'operating systems', 'deadlock'],
+  cn: ['cn', 'computer network', 'computer networks', 'networking', 'tcp'],
+  javascript: ['javascript', 'js', 'es6'],
+  react: ['react', 'reactjs'],
+  node: ['node', 'nodejs', 'express', 'jwt'],
+  sql: ['sql', 'mysql', 'postgres', 'queries'],
+  python: ['python'],
+  java: ['java'],
+};
+
+const hrQuestions = [
+  { id: 'hr-1', q: 'Tell me about yourself.', a: 'Use present-past-future in ~60-90 seconds: who you are now (branch, key skills), 1-2 relevant projects or achievements, and why this role excites you. Do not recite your resume.' },
+  { id: 'hr-2', q: 'What are your strengths and weaknesses?', a: 'Pick 2 strengths backed by a short example. For a weakness, name a real, non-critical one and show what you are doing to improve it.' },
+  { id: 'hr-3', q: 'Why should we hire you?', a: 'Match 2-3 of your skills or projects directly to the job description, and show eagerness to learn and contribute quickly.' },
+  { id: 'hr-4', q: 'Where do you see yourself in 5 years?', a: 'Show growth within the field: deepening technical skills, taking ownership, perhaps mentoring. Keep it realistic and aligned with the company.' },
+  { id: 'hr-5', q: 'Describe a challenge you faced in a project and how you solved it.', a: 'Use STAR: Situation, Task, Action, Result. Be specific about YOUR contribution and quantify the outcome if you can.' },
+  { id: 'hr-6', q: 'Why do you want to join our company?', a: 'Research the company: products, tech stack, values, recent news. Connect one or two of these to your own goals.' },
+];
+
+const aptitudeTips = {
+  quant: 'Quantitative: revise percentages, profit and loss, ratio, time-speed-distance, time and work, permutations and combinations, and probability. Learn tables to 20 and squares to 30, and practise mental maths. Do timed sets of 15-20 questions.',
+  logical: 'Logical reasoning: practise seating arrangements, blood relations, syllogisms, coding-decoding, series and puzzles. Draw diagrams instead of solving in your head, and skip puzzles that eat more than 3 minutes.',
+  verbal: 'Verbal: read editorials daily, revise subject-verb agreement, tenses and prepositions, and practise reading comprehension with a timer. For para-jumbles find the opening sentence first.',
+  general: 'Aptitude strategy: take a timed mock every 2-3 days, review every wrong answer, keep an error log, and aim for accuracy first and speed second. Most companies have a sectional cutoff, so do not neglect your weakest section.',
+};
+
+const resumeTips = [
+  'Keep it to one page with a clean single-column layout and a standard font. ATS parsers dislike tables and graphics.',
+  'Lead with Education, Skills and Projects if you are a fresher. Put your most relevant items first.',
+  'Write achievement bullets: action verb + what you did + measurable result ("Cut API response time by 35% by adding indexes").',
+  'List skills that you can defend in an interview, and mirror keywords from the job description.',
+  'Add GitHub and LinkedIn links, and make sure they work. Name the file like Firstname_Lastname_Resume.pdf.',
+  'Proofread twice. Typos are the quickest way to a rejection.',
+];
+
+const roadmaps = {
+  default: [
+    'Weeks 1-2: Core language (C++/Java/Python) plus arrays, strings, hashing. 2 problems a day.',
+    'Weeks 3-4: Linked lists, stacks, queues, recursion, sorting and searching. Start one aptitude set per day.',
+    'Weeks 5-6: Trees, graphs, DP basics. Revise OOP, DBMS (SQL queries), OS and CN fundamentals.',
+    'Weeks 7-8: Build or polish 2 projects, update your resume, and take a mock test every other day on the portal.',
+    'Final week: Mock interviews (HR + technical), company research, revise your error log.',
+  ],
+};
+
+module.exports = { technicalQuestions, topicAliases, hrQuestions, aptitudeTips, resumeTips, roadmaps };
+
+};
+__defs["skills"]=function(module,exports){
+// Skill vocabulary + helpers shared by the matcher and the chatbot.
+
+// canonical skill -> aliases (all lowercase)
+const SKILLS = {
+  javascript: ['javascript', 'js', 'es6'],
+  typescript: ['typescript', 'ts'],
+  react: ['react', 'reactjs', 'react.js'],
+  node: ['node', 'nodejs', 'node.js'],
+  express: ['express', 'expressjs', 'express.js'],
+  mongodb: ['mongodb', 'mongo', 'mongoose'],
+  html: ['html', 'html5'],
+  css: ['css', 'css3', 'tailwind', 'bootstrap'],
+  python: ['python'],
+  java: ['java'],
+  cpp: ['c++', 'cpp'],
+  c: ['c'],
+  sql: ['sql', 'mysql', 'postgres', 'postgresql'],
+  dsa: ['dsa', 'data structures', 'algorithms'],
+  git: ['git', 'github'],
+  docker: ['docker'],
+  aws: ['aws'],
+  'machine learning': ['machine learning', 'ml'],
+  'data analysis': ['data analysis', 'pandas', 'excel', 'power bi', 'tableau'],
+  django: ['django'],
+  flask: ['flask'],
+  spring: ['spring', 'spring boot'],
+  android: ['android', 'kotlin'],
+  testing: ['testing', 'jest', 'mocha', 'selenium', 'qa'],
+  'rest api': ['rest', 'rest api', 'restful', 'api'],
+};
+
+const aliasToCanonical = new Map();
+for (const [canon, aliases] of Object.entries(SKILLS)) {
+  aliasToCanonical.set(canon, canon);
+  for (const a of aliases) aliasToCanonical.set(a, canon);
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Pre-compile one regex per alias. Lookarounds instead of \b so "c++" and "node.js" work.
+const aliasRegexes = [...aliasToCanonical.keys()].map((alias) => ({
+  alias,
+  canon: aliasToCanonical.get(alias),
+  // "." in the lookbehind stops "node.js" from also matching the alias "js".
+  re: new RegExp(`(?<![a-z0-9+#.])${escapeRegExp(alias)}(?![a-z0-9+#])`, 'i'),
+}));
+
+/** Canonicalise one skill tag ("ReactJS" -> "react"). Unknown tags are lower-cased and kept. */
+function normalizeSkill(tag) {
+  const t = String(tag || '').trim().toLowerCase();
+  return aliasToCanonical.get(t) || t;
+}
+
+/** Find known skills mentioned in free text. */
+function extractSkills(text) {
+  const found = new Set();
+  const s = String(text || '');
+  for (const { canon, re } of aliasRegexes) if (re.test(s)) found.add(canon);
+  // Single-letter "c" and generic "api" are noisy in prose; only keep them if clearly intended.
+  if (found.has('c') && !/\b(c language|in c|c programming|\bc\b\s*,|, c\b)/i.test(s)) found.delete('c');
+  return [...found];
+}
+
+module.exports = { SKILLS, normalizeSkill, extractSkills };
+
+};
+__defs["jobMatcher"]=function(module,exports){
+// Rule-based job matching, in line with the report's "rule-based matching engine" (Sec. 3.1).
+// Pure functions: no database access, so they are easy to unit-test.
+
+const { normalizeSkill, extractSkills } = __require('./skills');
+
+/**
+ * Field names follow Table 4.1 of the project report. Fields the table does not list are optional:
+ *   job.requiredSkills[]  - if absent, skills are extracted from title + description
+ *   job.eligibility       - { minCgpa, branches[], maxBacklogs }
+ *   student.backlogs      - number, defaults to 0
+ */
+function requiredSkillsOf(job) {
+  if (Array.isArray(job.requiredSkills) && job.requiredSkills.length) {
+    return [...new Set(job.requiredSkills.map(normalizeSkill))];
+  }
+  return extractSkills(`${job.title || ''} ${job.description || ''}`);
+}
+
+function checkEligibility(student, job, now = new Date()) {
+  const reasons = [];
+  const e = job.eligibility || {};
+  if (job.deadline && new Date(job.deadline) < now) reasons.push('deadline passed');
+  if (e.minCgpa != null && (student.cgpa ?? 0) < e.minCgpa) reasons.push(`needs CGPA ${e.minCgpa}+`);
+  if (Array.isArray(e.branches) && e.branches.length) {
+    const ok = e.branches.some((b) => String(b).toLowerCase() === String(student.branch || '').toLowerCase());
+    if (!ok) reasons.push(`open to ${e.branches.join('/')} only`);
+  }
+  if (e.maxBacklogs != null && (student.backlogs ?? 0) > e.maxBacklogs) {
+    reasons.push(`max ${e.maxBacklogs} backlogs allowed`);
+  }
+  return { eligible: reasons.length === 0, reasons };
+}
+
+/**
+ * Rank jobs for a student.
+ * score (0-100) = 80% skill overlap + 20% CGPA headroom. Jobs with no detectable skills get a neutral 50 skill score.
+ * Returns { matches (eligible, sorted), ineligible (with reasons) }.
+ */
+function recommendJobs(student, jobs, { extraSkills = [], limit = 5, now = new Date() } = {}) {
+  const mySkills = new Set([...(student.skills || []), ...extraSkills].map(normalizeSkill));
+  const matches = [];
+  const ineligible = [];
+
+  for (const job of jobs) {
+    const { eligible, reasons } = checkEligibility(student, job, now);
+    const required = requiredSkillsOf(job);
+    const matched = required.filter((s) => mySkills.has(s));
+    const missing = required.filter((s) => !mySkills.has(s));
+
+    if (!eligible) {
+      ineligible.push({ job, reasons });
+      continue;
+    }
+
+    const skillScore = required.length ? matched.length / required.length : 0.5;
+    const minCgpa = job.eligibility?.minCgpa ?? 0;
+    const headroom = Math.max(0, Math.min(1, ((student.cgpa ?? 0) - minCgpa) / 2));
+    const score = Math.round((skillScore * 0.8 + headroom * 0.2) * 100);
+
+    matches.push({ job, score, matched, missing });
+  }
+
+  matches.sort((a, b) => b.score - a.score || String(a.job.title).localeCompare(String(b.job.title)));
+  return { matches: matches.slice(0, limit), allEligible: matches, ineligible };
+}
+
+/** Skills most often missing across the jobs the student is eligible for. */
+function skillGaps(allEligible, topN = 5) {
+  const count = new Map();
+  for (const m of allEligible) for (const s of m.missing) count.set(s, (count.get(s) || 0) + 1);
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN).map(([skill, jobs]) => ({ skill, jobs }));
+}
+
+module.exports = { recommendJobs, skillGaps, checkEligibility, requiredSkillsOf };
+
+};
+__defs["chatbot.service"]=function(module,exports){
+// Chatbot brain: intent detection + response builders.
+// Dependencies (database access, LLM) are injected so this file never touches Mongo or the network directly.
+
+const kb = __require('./knowledgeBase');
+const { extractSkills } = __require('./skills');
+const { recommendJobs, skillGaps } = __require('./jobMatcher');
+
+// ---------- Intent detection ----------
+// Each intent: list of [regex, weight]. Highest total wins; ties go to the earlier intent.
+const INTENTS = [
+  ['greeting', [[/^\s*(hi|hello|hey|hii|namaste|good (morning|afternoon|evening))\b/i, 3]]],
+  ['thanks', [[/\b(thanks|thank you|thx|great|awesome)\b/i, 3]]],
+  ['help', [[/\b(help|what can you do|how do you work|features|commands)\b/i, 3]]],
+  ['show_answer', [[/\b(show|give|tell)( me)?( the)? (answer|solution)\b|^\s*answer\b|\bhow (do|should) i answer\b/i, 4]]],
+  ['skill_gap', [[/skill[- ]?gap|\bmissing\b|what (skills )?(should|do) i (learn|need)|improve my skills|\black\b|upskill/i, 4]]],
+  ['jobs', [[/\b(jobs?|openings?|vacanc\w+|internships?|opportunit\w+|recommend\w*|suitable|apply|hiring|roles?|positions?)\b/i, 3], [/\bfor me\b|\bmatch\w*\b/i, 1]]],
+  ['practice', [[/\b(ask me|quiz me|practice|mock interview|interview question|test me|next question|another question)\b/i, 4], [/\bquestions?\b/i, 2]]],
+  ['hr', [[/\b(hr|behavio(u)?ral|tell me about yourself|strengths?|weakness(es)?|soft skills?)\b/i, 3]]],
+  ['aptitude', [[/\b(aptitude|quant\w*|logical|reasoning|verbal|cat|maths?)\b/i, 3]]],
+  ['resume', [[/\b(resume|cv|ats)\b/i, 4]]],
+  ['roadmap', [[/\b(roadmap|study plan|prep(aration)? plan|schedule|timeline|how (do|should) i (prepare|start)|where (do|should) i start)\b/i, 4]]],
+  ['mock_test', [[/\b(mock tests?|assessments?|timed test|score)\b/i, 3]]],
+  ['technical', [[/\b(technical|coding|programming|dsa|oop|oops|dbms|os|cn|sql|javascript|react|node|python|java)\b/i, 2], [/\b(data structures?|algorithms?|operating systems?|networks?|database)\b/i, 2]]],
+];
+
+function detectIntent(message) {
+  let best = { intent: 'fallback', score: 0 };
+  for (const [intent, rules] of INTENTS) {
+    const score = rules.reduce((sum, [re, w]) => sum + (re.test(message) ? w : 0), 0);
+    if (score > best.score) best = { intent, score };
+  }
+  return best.score >= 2 ? best.intent : 'fallback';
+}
+
+function detectTopic(message) {
+  const m = message.toLowerCase();
+  for (const [topic, aliases] of Object.entries(kb.topicAliases)) {
+    for (const a of aliases) {
+      const re = new RegExp(`(?<![a-z0-9])${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`);
+      if (re.test(m)) return topic;
+    }
+  }
+  return null;
+}
+
+// ---------- Helpers ----------
+const pick = (arr, rng) => arr[Math.floor(rng() * arr.length)];
+const allQuestions = () => [...Object.values(kb.technicalQuestions).flat(), ...kb.hrQuestions];
+const findQuestion = (id) => allQuestions().find((q) => q.id === id);
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const DEFAULT_SUGGESTIONS = ['Recommend jobs for me', 'What skills am I missing?', 'Ask me a technical question', 'Resume tips', 'Make a study plan'];
+
+const reply = (text, extra = {}) => ({ reply: text, suggestions: DEFAULT_SUGGESTIONS, ...extra });
+
+// ---------- Handlers ----------
+const handlers = {
+  greeting: ({ student }) =>
+    reply(`Hi${student?.name ? ` ${student.name.split(' ')[0]}` : ''}! I'm your placement assistant. I can recommend jobs that fit your profile, show your skill gaps, and help you practise aptitude, technical and HR rounds. What would you like to do?`),
+
+  thanks: () => reply("You're welcome! Ask me anything else about your placement prep."),
+
+  help: () =>
+    reply('Here is what I can do:\n• Recommend jobs based on your skills, CGPA and branch\n• Show the skills you are missing for open jobs\n• Ask you technical or HR practice questions (try "ask me a DBMS question")\n• Aptitude tips (quant, logical, verbal)\n• Resume tips and a week-by-week study plan'),
+
+  jobs: async ({ message, student, deps }) => {
+    if (!student) return reply('I could not load your profile. Please log in again.');
+    const jobs = await deps.getOpenJobs();
+    if (!jobs.length) return reply('There are no open job postings right now. Check back soon!');
+
+    const extraSkills = extractSkills(message); // "jobs for react and node" widens the search
+    const { matches, ineligible } = recommendJobs(student, jobs, { extraSkills, limit: 5 });
+
+    if (!matches.length) {
+      const why = ineligible.slice(0, 3).map((i) => `• ${i.job.title}: ${i.reasons.join(', ')}`).join('\n');
+      return reply(`I couldn't find open jobs you're currently eligible for.${why ? `\n\nClosest ones:\n${why}` : ''}\n\nTry improving your profile skills or ask "What skills am I missing?"`);
+    }
+    const top = matches[0];
+    const intro = `I found ${matches.length} job${matches.length > 1 ? 's' : ''} that fit your profile. Best match: ${top.job.title}${top.job.company ? ` at ${top.job.company}` : ''} (${top.score}% match).`;
+    return reply(intro, {
+      jobs: matches.map((m) => ({
+        id: String(m.job._id ?? m.job.jobId ?? ''),
+        title: m.job.title,
+        company: m.job.company || '',
+        deadline: m.job.deadline || null,
+        score: m.score,
+        matchedSkills: m.matched,
+        missingSkills: m.missing,
+      })),
+      suggestions: ['What skills am I missing?', 'Ask me a technical question', 'Resume tips'],
+    });
+  },
+
+  skill_gap: async ({ student, deps }) => {
+    if (!student) return reply('I could not load your profile. Please log in again.');
+    const jobs = await deps.getOpenJobs();
+    const { allEligible } = recommendJobs(student, jobs, { limit: 100 });
+    const gaps = skillGaps(allEligible);
+    if (!gaps.length) {
+      return reply(student.skills?.length
+        ? 'Nice, your skills already cover the open jobs you are eligible for. Keep practising interview questions!'
+        : 'Your profile has no skills yet. Add your skills on your profile page and I can compare them with open jobs.');
+    }
+    const lines = gaps.map((g) => `• ${cap(g.skill)}: required by ${g.jobs} job${g.jobs > 1 ? 's' : ''} you are eligible for`);
+    const practisable = gaps.find((g) => kb.technicalQuestions[detectTopic(g.skill)]);
+    const tip = practisable ? `\n\nI can quiz you on ${cap(practisable.skill)}: try "ask me a ${practisable.skill} question".` : '\n\nStart with the first one and add it to your profile once you have practised it.';
+    return reply(`Skills that would unlock the most jobs for you:\n${lines.join('\n')}${tip}`, {
+      suggestions: [...(practisable ? [`Ask me a ${practisable.skill} question`] : []), 'Make a study plan', 'Recommend jobs for me'],
+    });
+  },
+
+  practice: ({ message, rng }) => {
+    const wantsHr = /\bhr\b|behavio(u)?ral/i.test(message);
+    const topic = detectTopic(message);
+    let pool;
+    let label;
+    if (wantsHr) { pool = kb.hrQuestions; label = 'HR'; }
+    else if (topic && kb.technicalQuestions[topic]) { pool = kb.technicalQuestions[topic]; label = topic.toUpperCase(); }
+    else { pool = Object.values(kb.technicalQuestions).flat(); label = 'Technical'; }
+    const q = pick(pool, rng);
+    return reply(`${label} question:\n\n${q.q}\n\nThink about it, then say "show answer" or "next question".`, {
+      context: { lastQuestionId: q.id },
+      suggestions: ['Show answer', 'Next question', 'Ask me an HR question'],
+    });
+  },
+
+  show_answer: ({ context }) => {
+    const q = context?.lastQuestionId && findQuestion(context.lastQuestionId);
+    if (!q) return reply('Ask me for a practice question first, for example "ask me a DBMS question", and then I can show you the answer.');
+    return reply(`Q: ${q.q}\n\nSample answer: ${q.a}`, { suggestions: ['Next question', 'Ask me an HR question', 'Recommend jobs for me'] });
+  },
+
+  hr: ({ rng }) => {
+    const q = pick(kb.hrQuestions, rng);
+    return reply(`HR rounds test communication and fit. Use the STAR method (Situation, Task, Action, Result) for behavioural questions. Try this one:\n\n${q.q}`, {
+      context: { lastQuestionId: q.id },
+      suggestions: ['Show answer', 'Next question', 'Resume tips'],
+    });
+  },
+
+  technical: ({ message, rng }) => {
+    const topic = detectTopic(message);
+    if (!topic) return reply(`I can quiz you on: ${Object.keys(kb.technicalQuestions).map((t) => t.toUpperCase()).join(', ')}. Try "ask me a DSA question".`);
+    const q = pick(kb.technicalQuestions[topic], rng);
+    return reply(`${topic.toUpperCase()} practice:\n\n${q.q}\n\nSay "show answer" when ready.`, {
+      context: { lastQuestionId: q.id },
+      suggestions: ['Show answer', 'Next question', 'Recommend jobs for me'],
+    });
+  },
+
+  aptitude: ({ message }) => {
+    const m = message.toLowerCase();
+    const key = /quant|maths?/.test(m) ? 'quant' : /logic|reason/.test(m) ? 'logical' : /verbal|english/.test(m) ? 'verbal' : 'general';
+    return reply(`${kb.aptitudeTips[key]}\n\nYou can also take a timed mock test from the Assessments section of the portal.`, {
+      suggestions: ['Quant tips', 'Logical reasoning tips', 'Verbal tips', 'Make a study plan'],
+    });
+  },
+
+  resume: () => reply(`Resume checklist:\n${kb.resumeTips.map((t) => `• ${t}`).join('\n')}`, { suggestions: ['Recommend jobs for me', 'Ask me an HR question'] }),
+
+  roadmap: () => reply(`A simple 8-week placement plan:\n${kb.roadmaps.default.map((t) => `• ${t}`).join('\n')}`, { suggestions: ['Aptitude tips', 'Ask me a DSA question', 'Resume tips'] }),
+
+  mock_test: () => reply('Open the Assessments section on the portal to take timed aptitude and technical mock tests. They are auto-scored, so review every wrong answer afterwards. Want tips for a section?', { suggestions: ['Quant tips', 'Logical reasoning tips', 'Verbal tips'] }),
+
+  fallback: () => reply("I'm not sure I understood that. I can help with job recommendations, skill gaps, practice questions, aptitude, resume tips and study plans. Try one of the options below."),
+};
+
+// ---------- Public API ----------
+/**
+ * @param {object} args
+ * @param {string} args.message
+ * @param {object} [args.context]   echoed back by the client, e.g. { lastQuestionId }
+ * @param {string} args.userId
+ * @param {object} args.deps        { getStudent(userId), getOpenJobs(), llmFallback?(message, student) }
+ * @param {Function} [args.rng]     injectable for tests
+ */
+async function handleMessage({ message, context = {}, userId, deps, rng = Math.random }) {
+  const text = String(message || '').trim().slice(0, 500);
+  if (!text) return reply('Please type a message.');
+
+  const intent = detectIntent(text);
+  const student = intent === 'jobs' || intent === 'skill_gap' || intent === 'greeting' ? await deps.getStudent(userId) : null;
+
+  // Optional AI fallback for open-ended questions the rules do not cover.
+  if (intent === 'fallback' && deps.llmFallback) {
+    try {
+      const answer = await deps.llmFallback(text);
+      if (answer) return reply(answer);
+    } catch (err) {
+      console.error('LLM fallback failed:', err.message);
+    }
+  }
+
+  const out = await handlers[intent]({ message: text, context, student, deps, rng });
+  return { ...out, intent };
+}
+
+module.exports = { handleMessage, detectIntent, detectTopic };
+
+};
+
+</script>
+<script>
+(function(){
+  const { handleMessage } = __require('chatbot.service');
+  const day = 864e5, now = Date.now();
+  const J = (id,title,company,description,days,eligibility,requiredSkills)=>({_id:id,title,company,description,deadline:new Date(now+days*day).toISOString(),eligibility,requiredSkills});
+  const JOBS = [
+    J('j1','Frontend Developer','Pixelforge','Build UIs with React, JavaScript, HTML and CSS.',12,{minCgpa:7,branches:['IT','CSE']}),
+    J('j2','Full Stack Engineer','Orbit Labs','React, Node.js, Express and MongoDB for internal tools.',9,{minCgpa:7.5}),
+    J('j3','Backend Developer','Kite Systems','Node.js, Express, MongoDB and REST API design.',15,{minCgpa:7}),
+    J('j4','Data Analyst','Numera','SQL, Python, Excel and Power BI dashboards.',20,{minCgpa:7.5}),
+    J('j5','Java Developer Trainee','Stackwell','Java, Spring Boot, SQL and Git.',7,{minCgpa:6.5,maxBacklogs:0}),
+    J('j6','ML Engineer Intern','Tensora','Python, machine learning and SQL.',18,{minCgpa:8.5,branches:['IT','CSE']}),
+    J('j7','QA Automation Engineer','Verity','Testing with Selenium, JavaScript and Git.',10,{minCgpa:6.5}),
+    J('j8','Embedded Systems Trainee','Circuita','C, C++ and microcontrollers.',14,{minCgpa:7,branches:['ECE']}),
+  ];
+  document.getElementById('joblist').innerHTML = JOBS.map(j=>`<li><b>${j.title}</b> · ${j.company}</li>`).join('');
+
+  const $ = id => document.getElementById(id);
+  const msgs=$('msgs'), chips=$('chips'), input=$('input'), send=$('send');
+  const profile = () => ({
+    name:$('name').value.trim()||'Student', branch:$('branch').value, cgpa:parseFloat($('cgpa').value)||0,
+    backlogs:parseInt($('backlogs').value,10)||0, skills:$('skills').value.split(',').map(s=>s.trim()).filter(Boolean),
+  });
+  const deps = { getStudent: async()=>profile(), getOpenJobs: async()=>JOBS };
+  let context = {};
+
+  const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function add(from, text, jobs){
+    const d=document.createElement('div'); d.className='msg '+from;
+    let html = esc(text);
+    if(jobs) html += jobs.map(j=>`<div class="job"><div class="job-top"><strong>${esc(j.title)}</strong><span class="score">${j.score}%</span></div>
+      <div class="muted">${esc(j.company)}${j.deadline?' · apply by '+new Date(j.deadline).toLocaleDateString():''}</div>
+      <div class="tags">${j.matchedSkills.map(s=>`<span class="tag ok">${esc(s)}</span>`).join('')}${j.missingSkills.map(s=>`<span class="tag miss">${esc(s)}</span>`).join('')}</div></div>`).join('')
+      + (jobs.length?`<div class="muted" style="margin-top:8px">Green: skills you have. Red: skills you are missing.</div>`:'');
+    d.innerHTML=html; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight;
+  }
+  function setChips(list){ chips.innerHTML=''; (list||[]).forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onclick=()=>ask(s);chips.appendChild(b);}); }
+  async function ask(text){
+    text=(text||'').trim(); if(!text) return;
+    input.value=''; add('user',text); send.disabled=true;
+    try{
+      const r = await handleMessage({message:text,context,userId:'demo',deps});
+      context = r.context || {};
+      add('bot', r.reply, r.jobs); setChips(r.suggestions);
+    }catch(e){ add('bot','Something went wrong. Please try again.'); }
+    send.disabled=false; input.focus();
+  }
+  $('form').addEventListener('submit',e=>{e.preventDefault();ask(input.value);});
+  const first = {reply:"Hi! I'm your placement assistant. I can recommend jobs that fit your profile, show skill gaps, and run interview practice.", suggestions:['Recommend jobs for me','What skills am I missing?','Ask me a DBMS question','Resume tips','Make a study plan']};
+  add('bot',first.reply); setChips(first.suggestions);
+})();
+</script>

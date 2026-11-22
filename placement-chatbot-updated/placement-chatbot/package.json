@@ -1,0 +1,10 @@
+{
+  "name": "placement-chatbot",
+  "version": "1.0.0",
+  "description": "Placement prep and job recommendation chatbot for the Placement Preparation and Job Portal",
+  "main": "server/chatbot.routes.js",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server/standalone.js", "test": "node --test server/tests/chatbot.test.js" },
+  "dependencies": { "express": "^4.19.2" },
+  "license": "MIT"
+}
