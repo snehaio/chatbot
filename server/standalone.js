@@ -22,7 +22,14 @@ const llmFallback = createLlmFallback();
 const app = express();
 app.use(express.json({ limit: '50kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+const aiName = () => {
+  const want = (process.env.LLM_PROVIDER || '').toLowerCase();
+  if (want === 'gemini' || (!want && process.env.GEMINI_API_KEY)) return process.env.GEMINI_API_KEY ? 'gemini' : 'none (LLM_PROVIDER=gemini but GEMINI_API_KEY is missing)';
+  if (want === 'anthropic' || (!want && process.env.ANTHROPIC_API_KEY)) return process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'none (LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is missing)';
+  return 'none (set GEMINI_API_KEY or ANTHROPIC_API_KEY)';
+};
 app.get('/health', (_req, res) => res.send('ok'));
+app.get('/ai-status', (_req, res) => res.json({ ai: aiName() })); // never reveals the key
 
 app.post('/api/chatbot/message', async (req, res) => {
   const { message, context, history, profile } = req.body || {};
@@ -32,4 +39,4 @@ app.post('/api/chatbot/message', async (req, res) => {
   res.json(await handleMessage({ message, context, history, userId: 'demo', deps }));
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('Placement chatbot demo running'));
+app.listen(process.env.PORT || 3000, () => console.log(`Placement chatbot demo running. AI provider: ${aiName()}`));

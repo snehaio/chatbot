@@ -155,3 +155,66 @@ test('llm: history from the client is sanitised', () => {
   assert.deepEqual(cleanHistory(dirty), [{ role: 'user', content: 'a\nb' }, { role: 'assistant', content: 'c' }]);
   assert.deepEqual(cleanHistory('nope'), []);
 });
+
+
+// ---------- Providers (fetch is mocked, no network) ----------
+const { chooseProvider, pickFlashModels } = require('../llm');
+const { createLlmFallback } = require('../llm');
+const realFetch = global.fetch;
+const json = (status, body) => ({ ok: status < 400, status, json: async () => body });
+const withFetch = async (impl, fn) => { global.fetch = impl; try { await fn(); } finally { global.fetch = realFetch; } };
+
+test('provider choice: Gemini preferred when its key is set; LLM_PROVIDER overrides; none -> null', () => {
+  assert.equal(chooseProvider({}), null);
+  assert.equal(typeof chooseProvider({ GEMINI_API_KEY: 'g' }), 'function');
+  assert.equal(typeof chooseProvider({ ANTHROPIC_API_KEY: 'a' }), 'function');
+  assert.equal(chooseProvider({ LLM_PROVIDER: 'gemini', ANTHROPIC_API_KEY: 'a' }), null); // asked for gemini but no key
+  assert.equal(createLlmFallback({ env: {} }), null);
+});
+
+test('gemini: picks plain Flash models, newest first, skips lite/preview/non-generate', () => {
+  const g = (name, m = ['generateContent']) => ({ name: `models/${name}`, supportedGenerationMethods: m });
+  const picked = pickFlashModels([g('gemini-2.0-flash'), g('gemini-3.5-flash'), g('gemini-3.5-flash-lite'), g('gemini-3.8-flash-preview'), g('gemini-3.8-flash'), g('gemini-3.9-flash', ['embedContent']), g('gemini-2.5-pro')]);
+  assert.deepEqual(picked, ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.0-flash']);
+});
+
+test('gemini: discovers model, sends system prompt + history in Gemini format, returns text', async () => {
+  const calls = [];
+  await withFetch(async (url, opts) => {
+    calls.push({ url, opts });
+    if (String(url).includes('/models?')) return json(200, { models: [{ name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] }] });
+    return json(200, { candidates: [{ content: { parts: [{ text: 'Negotiate politely.' }] } }] });
+  }, async () => {
+    const llm = createLlmFallback({ env: { GEMINI_API_KEY: 'k' } });
+    const out = await llm('how to negotiate?', { history: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }], student });
+    assert.equal(out, 'Negotiate politely.');
+    const gen = calls.find((c) => String(c.url).includes(':generateContent'));
+    assert.match(gen.url, /models\/gemini-3\.8-flash:generateContent/);
+    assert.equal(gen.opts.headers['x-goog-api-key'], 'k');
+    const body = JSON.parse(gen.opts.body);
+    assert.match(body.systemInstruction.parts[0].text, /Placement Assistant/);
+    assert.match(body.systemInstruction.parts[0].text, /Ridhima Sharma/);
+    assert.deepEqual(body.contents.map((c) => c.role), ['user', 'model', 'user']);
+    await llm('again', {}); // second call reuses the working model, no new discovery
+    assert.equal(calls.filter((c) => String(c.url).includes('/models?')).length, 1);
+  });
+});
+
+test('gemini: falls through to the next model when one is out of quota, error text shows the reason', async () => {
+  await withFetch(async (url) => {
+    if (String(url).includes('/models?')) return json(200, { models: ['gemini-3.8-flash', 'gemini-3.5-flash'].map((n) => ({ name: `models/${n}`, supportedGenerationMethods: ['generateContent'] })) });
+    if (String(url).includes('3.8-flash')) return json(429, { error: { message: 'quota exceeded' } });
+    return json(200, { candidates: [{ content: { parts: [{ text: 'ok from 3.5' }] } }] });
+  }, async () => {
+    assert.equal(await createLlmFallback({ env: { GEMINI_API_KEY: 'k' } })('hi'), 'ok from 3.5');
+  });
+  await withFetch(async () => json(400, { error: { message: 'API key not valid' } }), async () => {
+    await assert.rejects(createLlmFallback({ env: { GEMINI_API_KEY: 'bad', GEMINI_MODEL: 'gemini-x' } })('hi'), /HTTP 400: API key not valid/);
+  });
+});
+
+test('claude: error message includes Anthropic reason', async () => {
+  await withFetch(async () => json(400, { error: { message: 'credit balance is too low' } }), async () => {
+    await assert.rejects(createLlmFallback({ env: { ANTHROPIC_API_KEY: 'k' } })('hi'), /HTTP 400: credit balance is too low/);
+  });
+});
