@@ -593,7 +593,7 @@ module.exports = { handleMessage, detectIntent, detectTopic };
   function setChips(list){ chips.innerHTML=''; (list||[]).forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onclick=()=>ask(s);chips.appendChild(b);}); }
   function setMode(m){
     const el = $('mode');
-    el.textContent = m === 'ai' ? 'AI answer (Claude)' : m === true ? 'Server rules (job cards, quiz)' : 'Offline: in-browser rules only';
+    el.textContent = m === 'ai' ? 'AI answer' : m === true ? 'Server rules (job cards, quiz)' : 'Offline: in-browser rules only';
   }
   async function ask(text){
     text=(text||'').trim(); if(!text) return;
