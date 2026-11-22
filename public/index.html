@@ -88,7 +88,7 @@ form button:disabled{opacity:.5;cursor:not-allowed}
   </aside>
 
   <main class="chat">
-    <div class="chat-head">Chat <small>Rule-based, no API key</small></div>
+    <div class="chat-head">Chat <small id="mode">Checking server…</small></div>
     <div class="msgs" id="msgs" aria-live="polite"></div>
     <div class="chips" id="chips"></div>
     <form id="form">
@@ -577,6 +577,8 @@ module.exports = { handleMessage, detectIntent, detectTopic };
   });
   const deps = { getStudent: async()=>profile(), getOpenJobs: async()=>JOBS };
   let context = {};
+  let history = [];   // last turns, sent to the server so the AI remembers the chat
+  let serverOk = true; // falls back to the in-browser rules if the server is unreachable
 
   const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   function add(from, text, jobs){
@@ -589,12 +591,29 @@ module.exports = { handleMessage, detectIntent, detectTopic };
     d.innerHTML=html; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight;
   }
   function setChips(list){ chips.innerHTML=''; (list||[]).forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onclick=()=>ask(s);chips.appendChild(b);}); }
+  function setMode(m){
+    const el = $('mode');
+    el.textContent = m === 'ai' ? 'AI answer (Claude)' : m === true ? 'Server rules (job cards, quiz)' : 'Offline: in-browser rules only';
+  }
   async function ask(text){
     text=(text||'').trim(); if(!text) return;
     input.value=''; add('user',text); send.disabled=true;
     try{
-      const r = await handleMessage({message:text,context,userId:'demo',deps});
+      let r;
+      if (serverOk) {
+        try {
+          const res = await fetch('/api/chatbot/message', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({message:text, context, history: history.slice(-10), profile: profile()}),
+          });
+          if (!res.ok) throw new Error('HTTP '+res.status);
+          r = await res.json();
+        } catch (e) { serverOk = false; setMode(false); }
+      }
+      if (!r) r = await handleMessage({message:text,context,userId:'demo',deps});
       context = r.context || {};
+      if (serverOk) setMode(r.intent === 'llm' ? 'ai' : true);
+      history.push({role:'user',content:text},{role:'assistant',content:r.reply});
       add('bot', r.reply, r.jobs); setChips(r.suggestions);
     }catch(e){ add('bot','Something went wrong. Please try again.'); }
     send.disabled=false; input.focus();
